@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const CHECKOUT_SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1';
 const SETUP_NODE_SHA = '820762786026740c76f36085b0efc47a31fe5020';
 const SETUP_PYTHON_SHA = '5fda3b95a4ea91299a34e894583c3862153e4b97';
-const JEV_SHA = 'b1462ac2d5e9f1e8e8a12db60ca2a15931cb3eaa';
+const JEV_SHA = 'e05481517eb05c39112b092d03fd883951f2b97f';
 
 async function workflow(name) {
   return readFile(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8');
