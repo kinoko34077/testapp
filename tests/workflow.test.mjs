@@ -53,3 +53,10 @@ test('ci workflow is read-only and runs deterministic tests on node 26.10.0', as
   assert.match(text, /npm test/);
   assert.doesNotMatch(text, /issues:\s*write|secrets\./);
 });
+
+test('checkout never persists the workflow token into git config', async () => {
+  for (const name of ['tool-request.yml', 'ci.yml']) {
+    const text = await workflow(name);
+    assert.match(text, /persist-credentials:\s*false/);
+  }
+});

@@ -92,3 +92,35 @@ test('duplicate detection never lets a later issue invalidate the first request'
   assert.equal(await client.findRequestId('req_first123', 12), null);
   assert.deepEqual(await client.findRequestId('req_first123', 13), { issueNumber: 12 });
 });
+
+test('issue scan limit fails closed instead of allowing an incomplete duplicate check', async () => {
+  const fullPage = Array.from({ length: 100 }, (_, i) => ({ number: i + 1, body: 'not a request' }));
+  const client = createGitHubClient({
+    token,
+    repository: repo,
+    fetchImpl: async () => jsonResponse(200, fullPage),
+  });
+  await assert.rejects(
+    () => client.listIssues(),
+    (error) => error.code === 'ISSUE_SCAN_LIMIT',
+  );
+});
+
+test('findExistingResult accepts only a bounded github-actions bot result comment', async () => {
+  const result = {
+    schema: 'kinotch-tool-result-v1', request_id: 'req_done1234',
+    tool: 'semantic_compress', status: 'success', result: { compressed_text: 'x' }, provenance: {},
+  };
+  const comments = [
+    { user: { login: 'kinoko34077', type: 'User' }, body: `\`\`\`json\n${JSON.stringify(result)}\n\`\`\`` },
+    { user: { login: 'github-actions[bot]', type: 'Bot' }, body: 'not a bridge result' },
+    { user: { login: 'github-actions[bot]', type: 'Bot' }, body: `\`\`\`json\n${JSON.stringify(result)}\n\`\`\`` },
+  ];
+  const client = createGitHubClient({
+    token, repository: repo, fetchImpl: async (url) => {
+      assert.match(String(url), /\/issues\/42\/comments\?/);
+      return jsonResponse(200, comments);
+    },
+  });
+  assert.deepEqual(await client.findExistingResult(42), result);
+});

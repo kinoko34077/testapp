@@ -104,3 +104,25 @@ test('jev semantic status remains tool data, not bridge failure', () => {
   assert.equal(envelope.result.source, undefined);
   assert.equal(envelope.result.coverage.secret, undefined);
 });
+
+test('jev findings are deeply projected and cannot carry source payloads', () => {
+  const envelope = successResult({
+    request: { ...request, tool: 'jev_audit' },
+    provenance: { workflow_run_id: 10, bridge_sha: 'f'.repeat(40) },
+    result: {
+      status: 'review',
+      risk: 0.8,
+      repository: 'kinoko34077/example',
+      head_sha: '1'.repeat(40),
+      coverage: { files_scanned: 1 },
+      findings: [{ index: 1, risk: 0.8, paths: ['src/a.py'], source: 'private source', raw: { secret: true } }],
+    },
+  });
+  assert.equal(envelope.result.findings.length, 1);
+  assert.deepEqual(envelope.result.findings[0], {
+    index: 1,
+    risk: 0.8,
+    paths: ['src/a.py'],
+  });
+  assert.doesNotMatch(JSON.stringify(envelope), /private source|secret/);
+});

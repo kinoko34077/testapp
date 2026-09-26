@@ -2,6 +2,8 @@ import { extractRequestEnvelope } from './request.mjs';
 
 const API_VERSION = '2022-11-28';
 const MAX_ISSUE_PAGES = 10;
+const MAX_COMMENT_PAGES = 10;
+const RESULT_STATUSES = new Set(['success', 'invalid_request', 'duplicate_request', 'tool_error', 'bridge_error']);
 
 function githubError(code, message) {
   const error = new Error(message);
@@ -52,16 +54,54 @@ export function createGitHubClient({ token, repository, fetchImpl = fetch }) {
       const batch = await api(`/issues?state=all&per_page=100&page=${page}`);
       if (!Array.isArray(batch)) throw githubError('UPSTREAM_RESPONSE_INVALID', 'GitHub issues response is invalid');
       issues.push(...batch);
-      if (batch.length < 100) break;
+      if (batch.length < 100) return issues;
     }
-    return issues;
+    throw githubError('ISSUE_SCAN_LIMIT', 'GitHub issue scan limit reached before duplicate check completed');
   }
+  async function listComments(issueNumber) {
+    const comments = [];
+    for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
+      const batch = await api(`/issues/${issueNumber}/comments?per_page=100&page=${page}`);
+      if (!Array.isArray(batch)) throw githubError('UPSTREAM_RESPONSE_INVALID', 'GitHub comments response is invalid');
+      comments.push(...batch);
+      if (batch.length < 100) return comments;
+    }
+    throw githubError('COMMENT_SCAN_LIMIT', 'GitHub comment scan limit reached before idempotency check completed');
+  }
+
   async function postComment(issueNumber, body) {
     await api(`/issues/${issueNumber}/comments`, { method: 'POST', body: { body } });
   }
 
   async function closeIssue(issueNumber) {
     await api(`/issues/${issueNumber}`, { method: 'PATCH', body: { state: 'closed' } });
+  }
+
+  function parseResultComment(body) {
+    if (typeof body !== 'string') return null;
+    const matches = [...body.matchAll(/```json[ \t]*\r?\n([\s\S]*?)\r?\n```/g)];
+    if (matches.length !== 1) return null;
+    try {
+      const value = JSON.parse(matches[0][1]);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+      if (value.schema !== 'kinotch-tool-result-v1') return null;
+      if (!RESULT_STATUSES.has(value.status)) return null;
+      if (!Object.prototype.hasOwnProperty.call(value, 'result')) return null;
+      if (!value.provenance || typeof value.provenance !== 'object' || Array.isArray(value.provenance)) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  async function findExistingResult(issueNumber) {
+    const comments = await listComments(issueNumber);
+    for (const comment of comments) {
+      if (comment?.user?.login !== 'github-actions[bot]' || comment?.user?.type !== 'Bot') continue;
+      const result = parseResultComment(comment.body);
+      if (result) return result;
+    }
+    return null;
   }
 
   async function findRequestId(requestId, currentIssueNumber) {
@@ -81,6 +121,8 @@ export function createGitHubClient({ token, repository, fetchImpl = fetch }) {
 
   return {
     listIssues,
+    listComments,
+    findExistingResult,
     postComment,
     closeIssue,
     findRequestId,

@@ -56,6 +56,12 @@ export async function runIssueRequest({ event, env = process.env, dependencies =
     repository: env.GITHUB_REPOSITORY,
   });
 
+  const existingResult = await github.findExistingResult(issue.number);
+  if (existingResult) {
+    await github.closeIssue(issue.number);
+    return existingResult;
+  }
+
   let request;
   try {
     request = validateRequestEnvelope(extractRequestEnvelope(issue.body));

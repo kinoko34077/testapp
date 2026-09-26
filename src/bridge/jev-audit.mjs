@@ -9,6 +9,19 @@ const MODES = new Set(['full', 'changed-only']);
 const SHA_RE = /^[0-9a-f]{40}$/;
 const MAX_OUTPUT_BYTES = 2_000_000;
 const PROCESS_TIMEOUT_MS = 10 * 60 * 1000;
+const CHILD_ENV_KEYS = [
+  'PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP',
+  'SYSTEMROOT', 'WINDIR', 'PATHEXT', 'COMSPEC',
+  'LANG', 'LC_ALL', 'LC_CTYPE', 'PYTHONUTF8', 'PYTHONIOENCODING',
+];
+
+function childEnv(baseEnv = process.env, extra = {}) {
+  const env = {};
+  for (const key of CHILD_ENV_KEYS) {
+    if (typeof baseEnv?.[key] === 'string') env[key] = baseEnv[key];
+  }
+  return { ...env, ...extra };
+}
 
 function bridgeError(code, message) {
   const error = new Error(message);
@@ -34,7 +47,7 @@ function validateParameters(parameters) {
 function runProcess(command, args, {
   spawnImpl = nodeSpawn,
   cwd,
-  env = process.env,
+  env = childEnv(process.env),
   errorCode,
   timeoutMs = PROCESS_TIMEOUT_MS,
 } = {}) {
@@ -90,11 +103,11 @@ function runProcess(command, args, {
   });
 }
 
-async function resolveFetchedCommit(targetDir, spawnImpl) {
+async function resolveFetchedCommit(targetDir, spawnImpl, env) {
   const output = await runProcess(
     'git',
     ['-C', targetDir, 'rev-parse', '--verify', 'FETCH_HEAD^{commit}'],
-    { spawnImpl, errorCode: 'GIT_ERROR' },
+    { spawnImpl, env, errorCode: 'GIT_ERROR' },
   );
   const sha = output.trim().toLowerCase();
   if (!SHA_RE.test(sha)) throw bridgeError('GIT_ERROR', 'git returned an invalid commit SHA');
@@ -102,28 +115,29 @@ async function resolveFetchedCommit(targetDir, spawnImpl) {
 }
 export async function preparePublicRepository(
   parameters,
-  { spawnImpl = nodeSpawn, workDir } = {},
+  { spawnImpl = nodeSpawn, workDir, baseEnv = process.env } = {},
 ) {
   validateParameters(parameters);
   if (typeof workDir !== 'string' || workDir.length === 0) throw new TypeError('workDir is required');
   const targetDir = await mkdtemp(path.join(workDir, 'repo-'));
   const remote = `https://github.com/${parameters.repository}.git`;
+  const gitEnv = childEnv(baseEnv);
   try {
     await runProcess(
       'git',
       ['clone', '--filter=blob:none', '--no-checkout', remote, targetDir],
-      { spawnImpl, errorCode: 'GIT_ERROR' },
+      { spawnImpl, env: gitEnv, errorCode: 'GIT_ERROR' },
     );
     await runProcess(
       'git',
       ['-C', targetDir, 'fetch', '--depth=1', 'origin', parameters.ref],
-      { spawnImpl, errorCode: 'GIT_ERROR' },
+      { spawnImpl, env: gitEnv, errorCode: 'GIT_ERROR' },
     );
-    const headSha = await resolveFetchedCommit(targetDir, spawnImpl);
+    const headSha = await resolveFetchedCommit(targetDir, spawnImpl, gitEnv);
     await runProcess(
       'git',
       ['-C', targetDir, 'checkout', '--detach', headSha],
-      { spawnImpl, errorCode: 'GIT_ERROR' },
+      { spawnImpl, env: gitEnv, errorCode: 'GIT_ERROR' },
     );
 
     let baseSha;
@@ -131,9 +145,9 @@ export async function preparePublicRepository(
       await runProcess(
         'git',
         ['-C', targetDir, 'fetch', '--depth=1', 'origin', parameters.base_ref],
-        { spawnImpl, errorCode: 'GIT_ERROR' },
+        { spawnImpl, env: gitEnv, errorCode: 'GIT_ERROR' },
       );
-      baseSha = await resolveFetchedCommit(targetDir, spawnImpl);
+      baseSha = await resolveFetchedCommit(targetDir, spawnImpl, gitEnv);
     }
     return { targetDir, headSha, baseSha };
   } catch (error) {
@@ -201,13 +215,10 @@ function projectReport(report, parameters, prepared) {
 
 export async function runJevAudit(
   parameters,
-  { spawnImpl = nodeSpawn, workDir, typesafeApiKey } = {},
+  { spawnImpl = nodeSpawn, workDir, typesafeApiKey, baseEnv = process.env } = {},
 ) {
   validateParameters(parameters);
-  if (typeof typesafeApiKey !== 'string' || typesafeApiKey.length === 0) {
-    throw new TypeError('typesafeApiKey is required');
-  }
-  const prepared = await preparePublicRepository(parameters, { spawnImpl, workDir });
+  const prepared = await preparePublicRepository(parameters, { spawnImpl, workDir, baseEnv });
   try {
     const args = ['.', '--profile', parameters.profile, '--json', '--fail-on', 'never'];
     if (parameters.mode === 'changed-only') {
@@ -216,7 +227,12 @@ export async function runJevAudit(
     const stdout = await runProcess('jev-audit', args, {
       spawnImpl,
       cwd: prepared.targetDir,
-      env: { ...process.env, TYPESAFE_API_KEY: typesafeApiKey },
+      env: childEnv(
+        baseEnv,
+        typeof typesafeApiKey === 'string' && typesafeApiKey.length > 0
+          ? { TYPESAFE_API_KEY: typesafeApiKey }
+          : {},
+      ),
       errorCode: 'JEV_ERROR',
     });
     let report;

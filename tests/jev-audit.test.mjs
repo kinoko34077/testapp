@@ -194,3 +194,57 @@ test('does not expose git or jev stderr on process failures', async () => {
     );
   });
 });
+
+test('git and jev child processes receive only the credentials they need', async () => {
+  await withTempDir(async (workDir) => {
+    const calls = [];
+    const head = '5'.repeat(40);
+    const baseEnv = {
+      PATH: 'safe-path',
+      GITHUB_TOKEN: 'github-secret',
+      COMPRESSION_API_TOKEN: 'compression-secret',
+      TYPESAFE_API_KEY: 'old-typesafe-secret',
+    };
+    const spawnImpl = fakeSpawn([
+      {}, {}, { stdout: `${head}\n` }, {},
+      { stdout: JSON.stringify(jevReport('clear')) },
+    ], calls);
+    await runJevAudit(
+      { repository: 'owner/repo', ref: 'main', mode: 'full', profile: 'development' },
+      { spawnImpl, workDir, typesafeApiKey: 'new-typesafe-secret', baseEnv },
+    );
+    for (const call of calls.slice(0, -1)) {
+      assert.equal(call.options.env.PATH, 'safe-path');
+      assert.equal(call.options.env.GITHUB_TOKEN, undefined);
+      assert.equal(call.options.env.COMPRESSION_API_TOKEN, undefined);
+      assert.equal(call.options.env.TYPESAFE_API_KEY, undefined);
+    }
+    const jevCall = calls.at(-1);
+    assert.equal(jevCall.options.env.PATH, 'safe-path');
+    assert.equal(jevCall.options.env.TYPESAFE_API_KEY, 'new-typesafe-secret');
+    assert.equal(jevCall.options.env.GITHUB_TOKEN, undefined);
+    assert.equal(jevCall.options.env.COMPRESSION_API_TOKEN, undefined);
+  });
+});
+
+test('clean changed-only can run without a provider key', async () => {
+  await withTempDir(async (workDir) => {
+    const calls = [];
+    const same = '5'.repeat(40);
+    const spawnImpl = fakeSpawn([
+      {}, {}, { stdout: `${same}\n` }, {},
+      {}, { stdout: `${same}\n` },
+      { stdout: JSON.stringify(jevReport('clear')) },
+    ], calls);
+    const result = await runJevAudit(
+      {
+        repository: 'kinoko34077/jev-audit', ref: 'main', mode: 'changed-only',
+        base_ref: 'main', profile: 'development',
+      },
+      { spawnImpl, workDir },
+    );
+    assert.equal(result.status, 'clear');
+    assert.equal(result.head_sha, same);
+    assert.equal(result.base_sha, same);
+  });
+});

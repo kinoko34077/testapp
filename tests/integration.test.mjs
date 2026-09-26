@@ -36,6 +36,7 @@ function harness({ duplicate = null, semanticResult, jevResult, toolError } = {}
   const closed = [];
   const calls = { semantic: 0, jev: 0 };
   const githubClient = {
+    findExistingResult: async () => null,
     findRequestId: async () => duplicate,
     postComment: async (number, value) => comments.push({ number, value }),
     closeIssue: async (number) => closed.push(number),
@@ -162,4 +163,25 @@ test('rejects non-opened or non-owner issue events before tool execution', async
     assert.equal(h.calls.semantic + h.calls.jev, 0);
     assert.equal(h.comments.length, 0);
   }
+});
+
+test('manual rerun reuses an existing final bot result without tool execution or duplicate comment', async () => {
+  const existing = {
+    schema: 'kinotch-tool-result-v1', request_id: 'req_12345678',
+    tool: 'semantic_compress', status: 'success', result: { compressed_text: 'already done' },
+    provenance: { workflow_run_id: 99, bridge_sha: 'a'.repeat(40) },
+  };
+  const h = harness();
+  h.dependencies.createGitHubClient = () => ({
+    findExistingResult: async () => existing,
+    findRequestId: async () => null,
+    postComment: async (number, value) => h.comments.push({ number, value }),
+    closeIssue: async (number) => h.closed.push(number),
+  });
+  const req = request('semantic_compress', { text: 'x', profile: 'compact-v1' });
+  const result = await runIssueRequest({ event: eventFor(body(req)), env, dependencies: h.dependencies });
+  assert.deepEqual(result, existing);
+  assert.equal(h.calls.semantic + h.calls.jev, 0);
+  assert.equal(h.comments.length, 0);
+  assert.deepEqual(h.closed, [42]);
 });

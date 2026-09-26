@@ -54,6 +54,20 @@ function projectSemantic(result) {
   projected.usage = pick(result?.usage, USAGE_KEYS);
   return projected;
 }
+function projectJevFinding(item) {
+  return pick(item, [
+    'index',
+    'risk',
+    'risk_driver',
+    'paths',
+    'concrete_issue',
+    'review_probability',
+    'rework_probability',
+    'actionable_probability',
+    'unknown_probability',
+  ]);
+}
+
 function projectJev(result) {
   const projected = pick(result, [
     'status',
@@ -65,8 +79,10 @@ function projectJev(result) {
     'repository',
     'head_sha',
     'base_sha',
-    'findings',
   ]);
+  projected.findings = Array.isArray(result?.findings)
+    ? result.findings.slice(0, 5).map(projectJevFinding)
+    : [];
   projected.coverage = pick(result?.coverage, COVERAGE_KEYS);
   return projected;
 }
