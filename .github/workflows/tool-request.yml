@@ -36,7 +36,7 @@ jobs:
       - name: Install Jev Audit
         run: >-
           python -m pip install
-          "git+https://github.com/kinoko34077/jev-audit.git@b1462ac2d5e9f1e8e8a12db60ca2a15931cb3eaa"
+          "git+https://github.com/kinoko34077/jev-audit.git@e05481517eb05c39112b092d03fd883951f2b97f"
 
       - name: Execute bounded bridge request
         env:
