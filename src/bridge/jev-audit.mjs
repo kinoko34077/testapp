@@ -29,6 +29,32 @@ function bridgeError(code, message) {
   return error;
 }
 
+const JEV_PROVIDER_ERROR_CODES = new Map([
+  ['TypeSafeAuthenticationError', 'JEV_PROVIDER_AUTHENTICATION'],
+  ['TypeSafePermissionDeniedError', 'JEV_PROVIDER_PERMISSION_DENIED'],
+  ['TypeSafeNotFoundError', 'JEV_PROVIDER_NOT_FOUND'],
+  ['TypeSafeBadRequestError', 'JEV_PROVIDER_BAD_REQUEST'],
+  ['TypeSafeUnprocessableEntityError', 'JEV_PROVIDER_UNPROCESSABLE'],
+  ['TypeSafeRateLimitError', 'JEV_PROVIDER_RATE_LIMIT'],
+  ['TypeSafeInternalServerError', 'JEV_PROVIDER_INTERNAL'],
+  ['TypeSafeAPIResponseValidationError', 'JEV_PROVIDER_RESPONSE_INVALID'],
+  ['TypeSafeAPITimeoutError', 'JEV_PROVIDER_TIMEOUT'],
+  ['TypeSafeAPIConnectionError', 'JEV_PROVIDER_CONNECTION'],
+  ['TypeSafeAPIError', 'JEV_PROVIDER_API'],
+  ['TypeSafeError', 'JEV_PROVIDER_CONFIG'],
+]);
+
+function classifyJevStderr(stderrPrefix) {
+  const match = /^ERROR: ([A-Za-z][A-Za-z0-9_]*):/.exec(stderrPrefix);
+  if (match && JEV_PROVIDER_ERROR_CODES.has(match[1])) {
+    return JEV_PROVIDER_ERROR_CODES.get(match[1]);
+  }
+  if (/^ERROR: RuntimeError: Jev response(?: |$)/.test(stderrPrefix)) {
+    return 'JEV_PROVIDER_RESPONSE_INVALID';
+  }
+  return null;
+}
+
 function validateRef(value, label) {
   if (typeof value !== 'string' || !REF_RE.test(value)) throw new TypeError(`${label} is invalid`);
   if (value.includes('..') || value.includes('//') || value.includes('@{') || value.endsWith('/') || value.endsWith('.') || value.endsWith('.lock')) {
@@ -49,6 +75,7 @@ function runProcess(command, args, {
   cwd,
   env = childEnv(process.env),
   errorCode,
+  classifyStderr,
   timeoutMs = PROCESS_TIMEOUT_MS,
 } = {}) {
   return new Promise((resolve, reject) => {
@@ -60,6 +87,7 @@ function runProcess(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
+    let stderrPrefix = '';
     let outputBytes = 0;
     let settled = false;
     const timer = setTimeout(() => {
@@ -78,7 +106,11 @@ function runProcess(command, args, {
         reject(bridgeError(errorCode, `${command} output exceeded limit`));
         return;
       }
-      if (capture) stdout += chunk;
+      if (capture) {
+        stdout += chunk;
+      } else if (stderrPrefix.length < 512) {
+        stderrPrefix += chunk.slice(0, 512 - stderrPrefix.length);
+      }
     }
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
@@ -95,7 +127,10 @@ function runProcess(command, args, {
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(bridgeError(errorCode, `${command} exited with code ${code}`));
+        const classifiedCode = typeof classifyStderr === 'function'
+          ? classifyStderr(stderrPrefix)
+          : null;
+        reject(bridgeError(classifiedCode ?? errorCode, `${command} exited with code ${code}`));
         return;
       }
       resolve(stdout);
@@ -234,6 +269,7 @@ export async function runJevAudit(
           : {},
       ),
       errorCode: 'JEV_ERROR',
+      classifyStderr: classifyJevStderr,
     });
     let report;
     try {

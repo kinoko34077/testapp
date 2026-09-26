@@ -195,6 +195,42 @@ test('does not expose git or jev stderr on process failures', async () => {
   });
 });
 
+test('classifies only allowlisted Jev provider exception prefixes without exposing stderr', async () => {
+  await withTempDir(async (workDir) => {
+    const calls = [];
+    const spawnImpl = fakeSpawn([
+      {}, {}, { stdout: `${'4'.repeat(40)}\n` }, {},
+      {
+        code: 2,
+        stderr: 'ERROR: TypeSafeUnprocessableEntityError: 422 private provider body TYPESAFE_API_KEY=secret\n',
+      },
+    ], calls);
+    await assert.rejects(
+      () => runJevAudit(
+        { repository: 'owner/repo', ref: 'main', mode: 'full', profile: 'development' },
+        { spawnImpl, workDir, typesafeApiKey: 'secret' },
+      ),
+      (error) => error.code === 'JEV_PROVIDER_UNPROCESSABLE'
+        && !/private provider body|TYPESAFE_API_KEY|secret|422/.test(error.message),
+    );
+  });
+
+  await withTempDir(async (workDir) => {
+    const calls = [];
+    const spawnImpl = fakeSpawn([
+      {}, {}, { stdout: `${'4'.repeat(40)}\n` }, {},
+      { code: 2, stderr: 'ERROR: EvilError: TypeSafeRateLimitError secret\n' },
+    ], calls);
+    await assert.rejects(
+      () => runJevAudit(
+        { repository: 'owner/repo', ref: 'main', mode: 'full', profile: 'development' },
+        { spawnImpl, workDir, typesafeApiKey: 'secret' },
+      ),
+      (error) => error.code === 'JEV_ERROR' && !/EvilError|RateLimit|secret/.test(error.message),
+    );
+  });
+});
+
 test('git and jev child processes receive only the credentials they need', async () => {
   await withTempDir(async (workDir) => {
     const calls = [];
