@@ -82,6 +82,8 @@ test('serializeResultComment emits exactly one fenced json block', () => {
 test('safeErrorCode maps only bounded known categories', () => {
   assert.equal(safeErrorCode(Object.assign(new Error('timeout body'), { name: 'TimeoutError' })), 'timeout');
   assert.equal(safeErrorCode(Object.assign(new Error('x'), { code: 'UPSTREAM_HTTP_ERROR' })), 'upstream_http_error');
+  assert.equal(safeErrorCode(Object.assign(new Error('secret'), { code: 'JEV_PROVIDER_UNPROCESSABLE' })), 'jev_provider_unprocessable');
+  assert.equal(safeErrorCode(Object.assign(new Error('secret'), { code: 'JEV_PROVIDER_RATE_LIMIT' })), 'jev_provider_rate_limit');
   assert.equal(safeErrorCode(new Error('Bearer secret')), 'internal_error');
 });
 

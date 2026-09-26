@@ -98,6 +98,18 @@ export function safeErrorCode(error) {
     TIMEOUT: 'timeout',
     GIT_ERROR: 'git_error',
     JEV_ERROR: 'jev_error',
+    JEV_PROVIDER_AUTHENTICATION: 'jev_provider_authentication',
+    JEV_PROVIDER_PERMISSION_DENIED: 'jev_provider_permission_denied',
+    JEV_PROVIDER_NOT_FOUND: 'jev_provider_not_found',
+    JEV_PROVIDER_BAD_REQUEST: 'jev_provider_bad_request',
+    JEV_PROVIDER_UNPROCESSABLE: 'jev_provider_unprocessable',
+    JEV_PROVIDER_RATE_LIMIT: 'jev_provider_rate_limit',
+    JEV_PROVIDER_INTERNAL: 'jev_provider_internal',
+    JEV_PROVIDER_RESPONSE_INVALID: 'jev_provider_response_invalid',
+    JEV_PROVIDER_TIMEOUT: 'jev_provider_timeout',
+    JEV_PROVIDER_CONNECTION: 'jev_provider_connection',
+    JEV_PROVIDER_API: 'jev_provider_api',
+    JEV_PROVIDER_CONFIG: 'jev_provider_config',
     INTERNAL_ERROR: 'internal_error',
   };
   return map[code] ?? 'internal_error';
