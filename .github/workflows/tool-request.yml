@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   bridge:
-    if: ${{ github.event.repository.private == true && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association) }}
+    if: ${{ github.event.repository.private == true && github.event.issue.author_association == 'OWNER' && startsWith(github.event.issue.title, '[TOOL REQUEST] ') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
