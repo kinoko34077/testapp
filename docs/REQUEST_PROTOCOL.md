@@ -6,6 +6,8 @@
 
 1 request = 1 private repository Issue とする。入口はGitHub Actionsの`issues: opened`で、通常経路にRDCは不要。
 
+bridge requestとしてadmitするIssueは、タイトルを必ず`[TOOL REQUEST] `で始める。private repositoryかつOWNERが作成したこのmarker付きIssueだけがsecret-bearing jobへ進む。通常Issueはworkflow/runtimeの両方でno-opとなり、result commentもcloseも行わない。marker付きIssueでrequest envelopeが不正な場合は、明示的なbridge requestとして従来どおり`invalid_request` resultを1件記録してcloseする。
+
 Issue本文にはmachine-readableな`json` fenced blockを1個だけ置く。request schemaは`kinotch-tool-request-v1`、result schemaは`kinotch-tool-result-v1`。
 
 bridgeはgeneric shell / arbitrary shell、任意CLI、任意model/provider/prompt、任意environment assignmentを提供しない。未知field/toolはprovider work前にfail-closedで拒否する。
