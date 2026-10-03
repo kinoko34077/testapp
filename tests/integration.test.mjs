@@ -16,11 +16,12 @@ function request(tool, parameters, requestId = 'req_12345678') {
   };
 }
 
-function eventFor(requestBody) {
+function eventFor(requestBody, title = '[TOOL REQUEST] bridge request') {
   return {
     action: 'opened',
     issue: {
       number: 42,
+      title,
       body: requestBody,
       user: { login: 'kinoko34077' },
       author_association: 'OWNER',
@@ -73,6 +74,25 @@ const env = {
   COMPRESSION_API_TOKEN: 'compression-token',
   TYPESAFE_API_KEY: 'typesafe-token',
 };
+test('ordinary owner Issue is ignored without github mutation or tool execution', async () => {
+  const h = harness();
+  let clientCreated = 0;
+  h.dependencies.createGitHubClient = () => {
+    clientCreated += 1;
+    throw new Error('ordinary issue must not create bridge client');
+  };
+  const result = await runIssueRequest({
+    event: eventFor('ordinary task body', '[P1][HUMAN GATE] Protect main'),
+    env,
+    dependencies: h.dependencies,
+  });
+  assert.deepEqual(result, { ignored: true, reason: 'not-tool-request' });
+  assert.equal(clientCreated, 0);
+  assert.equal(h.calls.semantic + h.calls.jev, 0);
+  assert.equal(h.comments.length, 0);
+  assert.equal(h.closed.length, 0);
+});
+
 test('valid semantic request executes once, posts one result, then closes', async () => {
   const h = harness();
   const req = request('semantic_compress', { text: 'long text', profile: 'compact-v1' });
