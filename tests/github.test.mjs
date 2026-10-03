@@ -51,10 +51,11 @@ test('posts one issue comment and closes the issue', async () => {
 
 test('findRequestId excludes current issue and ignores malformed bodies and PRs', async () => {
   const issues = [
-    { number: 10, body: requestBody('req_duplicate1') },
-    { number: 11, body: 'not a request' },
-    { number: 12, body: requestBody('req_duplicate1') },
-    { number: 13, body: requestBody('req_other123'), pull_request: {} },
+    { number: 9, title: 'ordinary issue', body: requestBody('req_duplicate1') },
+    { number: 10, title: '[TOOL REQUEST] first', body: requestBody('req_duplicate1') },
+    { number: 11, title: 'not a request', body: 'not a request' },
+    { number: 12, title: '[TOOL REQUEST] current', body: requestBody('req_duplicate1') },
+    { number: 13, title: '[TOOL REQUEST] pr', body: requestBody('req_other123'), pull_request: {} },
   ];
   const fetchImpl = async () => jsonResponse(200, issues);
   const client = createGitHubClient({ token, repository: repo, fetchImpl });
@@ -81,8 +82,9 @@ test('rejects missing credentials and non-ok github responses safely', async () 
 
 test('duplicate detection never lets a later issue invalidate the first request', async () => {
   const issues = [
-    { number: 12, body: requestBody('req_first123') },
-    { number: 13, body: requestBody('req_first123') },
+    { number: 11, title: 'ordinary copy', body: requestBody('req_first123') },
+    { number: 12, title: '[TOOL REQUEST] first', body: requestBody('req_first123') },
+    { number: 13, title: '[TOOL REQUEST] second', body: requestBody('req_first123') },
   ];
   const client = createGitHubClient({
     token,
