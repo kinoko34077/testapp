@@ -1,4 +1,4 @@
-import { extractRequestEnvelope } from './request.mjs';
+import { extractRequestEnvelope, isToolRequestIssue } from './request.mjs';
 
 const API_VERSION = '2022-11-28';
 const MAX_ISSUE_PAGES = 10;
@@ -108,7 +108,7 @@ export function createGitHubClient({ token, repository, fetchImpl = fetch }) {
     const issues = await listIssues();
     for (const issue of issues) {
       if (!Number.isInteger(issue?.number) || issue.number >= currentIssueNumber) continue;
-      if (issue.pull_request || typeof issue.body !== 'string') continue;
+      if (issue.pull_request || !isToolRequestIssue(issue) || typeof issue.body !== 'string') continue;
       try {
         const envelope = extractRequestEnvelope(issue.body);
         if (envelope?.request_id === requestId) return { issueNumber: issue.number };
