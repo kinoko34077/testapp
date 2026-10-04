@@ -19,7 +19,9 @@ test('tool request workflow has bounded issue trigger and least privilege', asyn
   assert.match(text, /cancel-in-progress:\s*false/);
   assert.match(text, /timeout-minutes:\s*20/);
   assert.match(text, /github\.event\.repository\.private\s*==\s*true/);
-  assert.match(text, /contains\(fromJSON\('\["OWNER","MEMBER","COLLABORATOR"\]'\),\s*github\.event\.issue\.author_association\)/);
+  assert.match(text, /github\.event\.issue\.author_association\s*==\s*['"]OWNER['"]/);
+  assert.match(text, /startsWith\(github\.event\.issue\.title,\s*['"]\[TOOL REQUEST\] ['"]\)/);
+  assert.doesNotMatch(text, /MEMBER|COLLABORATOR/);
   assert.doesNotMatch(text, /pull_request_target/);
 });
 

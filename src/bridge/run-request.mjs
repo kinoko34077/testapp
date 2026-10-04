@@ -2,7 +2,11 @@ import { tmpdir } from 'node:os';
 
 import { createGitHubClient as defaultCreateGitHubClient } from './github.mjs';
 import { runJevAudit as defaultRunJevAudit } from './jev-audit.mjs';
-import { extractRequestEnvelope, validateRequestEnvelope } from './request.mjs';
+import {
+  extractRequestEnvelope,
+  isToolRequestIssue,
+  validateRequestEnvelope,
+} from './request.mjs';
 import {
   failureResult,
   safeErrorCode,
@@ -46,6 +50,9 @@ async function finalize(github, issueNumber, envelope) {
 }
 
 export async function runIssueRequest({ event, env = process.env, dependencies = {} }) {
+  if (!isToolRequestIssue(event?.issue)) {
+    return { ignored: true, reason: 'not-tool-request' };
+  }
   const issue = validateEvent(event, env);
   const createGitHubClient = dependencies.createGitHubClient ?? defaultCreateGitHubClient;
   const runSemanticCompress = dependencies.runSemanticCompress ?? defaultRunSemanticCompress;

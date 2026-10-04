@@ -1,3 +1,4 @@
+export const TOOL_REQUEST_TITLE_PREFIX = '[TOOL REQUEST] ';
 const REQUEST_SCHEMA = 'kinotch-tool-request-v1';
 const REQUEST_KEYS = ['parameters', 'request_id', 'schema', 'tool'];
 const COMPRESS_PROFILES = new Set(['compact-v1', 'semantic-dense-v1']);
@@ -36,6 +37,14 @@ function validateRef(value, label) {
     fail(`${label} is invalid`);
   }
   return value;
+}
+
+export function isToolRequestIssue(issue) {
+  return Boolean(
+    issue
+    && typeof issue.title === 'string'
+    && issue.title.startsWith(TOOL_REQUEST_TITLE_PREFIX)
+  );
 }
 
 export function countCodePoints(text) {
