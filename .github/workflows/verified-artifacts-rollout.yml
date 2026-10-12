@@ -32,9 +32,9 @@ jobs:
       contents: write
       actions: read
       pull-requests: read
-    uses: kinoko34077/devflow/.github/workflows/generated-artifact-rollout.yml@7374ead0d1c7f5ce5ab032025be80c3e46dc69af
+    uses: kinoko34077/devflow/.github/workflows/generated-artifact-rollout.yml@e80f7f0095abfd56bdddf1374b459858935c555b
     with:
-      devflow_sha: 7374ead0d1c7f5ce5ab032025be80c3e46dc69af
+      devflow_sha: e80f7f0095abfd56bdddf1374b459858935c555b
       recipe_id: testapp-public-fixture-v1
       target_branch: ${{ inputs.target_branch }}
       expected_head: ${{ inputs.expected_head }}
