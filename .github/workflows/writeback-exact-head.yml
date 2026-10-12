@@ -1,0 +1,44 @@
+name: Verified writeback exact HEAD (testapp#32)
+
+on:
+  workflow_dispatch:
+    inputs:
+      checkout_sha:
+        description: Exact previously observed writer commit SHA
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: ${{ github.repository == 'kinoko34077/testapp' && github.actor == 'kinoko34077' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CHECKOUT_SHA: ${{ inputs.checkout_sha }}
+    steps:
+      - name: Require exact immutable commit SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHECKOUT_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 2
+      - name: Checkout exact writer HEAD read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.checkout_sha }}
+          persist-credentials: false
+      - name: Check actual checked-out commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CHECKOUT_SHA"
+      - name: Set up Node from existing testapp baseline
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26.10.0"
+      - name: Run all repository tests at actual writer HEAD
+        run: npm test
+      - name: Verify generated E2E output at actual writer HEAD
+        run: npm run verify:writeback-e2e
