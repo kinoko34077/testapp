@@ -11,6 +11,7 @@ jobs:
   pilot:
     if: >-
       github.repository == 'kinoko34077/testapp' &&
+      github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main' &&
       github.actor == 'kinoko34077'
     permissions:
