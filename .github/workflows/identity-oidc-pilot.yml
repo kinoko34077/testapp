@@ -1,0 +1,19 @@
+name: KiNoTch Identity OIDC issuer-only pilot (manual)
+
+# New GitHub OIDC job-level permission: HUMAN SECURITY GATE before merge or run.
+# Does not reach any external Worker, secret, API or privileged operation.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  pilot:
+    if: >-
+      github.repository == 'kinoko34077/testapp' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'kinoko34077'
+    permissions:
+      id-token: write
+    uses: kinoko34077/devflow/.github/workflows/identity-oidc-issuer-pilot.yml@5eafa39abc19881f024d9ac648f03177f7a30b29
