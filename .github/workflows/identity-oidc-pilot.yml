@@ -16,4 +16,4 @@ jobs:
       github.actor == 'kinoko34077'
     permissions:
       id-token: write
-    uses: kinoko34077/devflow/.github/workflows/identity-oidc-issuer-pilot.yml@5eafa39abc19881f024d9ac648f03177f7a30b29
+    uses: kinoko34077/devflow/.github/workflows/identity-oidc-recipient-pilot.yml@ffb2f72eafe5275fb03a782511f4522158d07ef1
