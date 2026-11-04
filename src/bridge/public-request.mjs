@@ -2,6 +2,7 @@ import { extractRequestEnvelope, isToolRequestIssue, validateRequestEnvelope } f
 
 export const TRUSTED_OWNER_ID = 79015263;
 export const PUBLIC_SCHEMA = 'kinotch-tool-request-v2';
+export const PUBLIC_TITLE = '[TOOL REQUEST] public semantic_compress';
 
 const SENSITIVE_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
@@ -39,6 +40,7 @@ export function admitPublicCompression(event) {
     || event?.repository?.owner?.id !== TRUSTED_OWNER_ID
     || !issue || !Number.isSafeInteger(issue.number) || issue.number < 1
     || !isToolRequestIssue(issue)
+    || issue.title !== PUBLIC_TITLE
     || issue.user?.id !== TRUSTED_OWNER_ID
     || issue.user?.login !== 'kinoko34077'
     || issue.author_association !== 'OWNER'
