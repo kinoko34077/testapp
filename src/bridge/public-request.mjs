@@ -52,6 +52,9 @@ export function admitPublicCompression(event) {
   }
   assertPublicTextPreflight(body);
   const request = validateRequestEnvelope(extractRequestEnvelope(body));
+  // JSON escaping can conceal paths/secrets from raw Issue-body pattern checks.
+  // Always scan the decoded text as well before any provider credential is used.
+  if (typeof request.parameters?.text === 'string') assertPublicTextPreflight(request.parameters.text);
   if (request.schema !== PUBLIC_SCHEMA || request.tool !== 'semantic_compress'
       || request.data_classification !== 'public_non_sensitive'
       || request.acknowledge_public_disclosure !== true) {
