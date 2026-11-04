@@ -6,7 +6,7 @@
 
 1 request = 1 GitHub Issue。入口は`issues: opened`、通常経路にRDCは不要。ただし**public Issue本文は投稿時点で公開**（削除・close・後段検査では取り消せない）。非機密であることを投稿前に確認できない場合、public経路を使わない。
 
-bridge requestとしてadmitするIssueは、タイトルを必ず`[TOOL REQUEST] `で始める。OWNER（数値GitHub ID `79015263`）が作成したmarker付きIssueだけが受入対象。private v1は従来経路、public v2は秘密値を渡さないadmission jobを先に通過する。通常Issueはworkflow/runtimeの両方でno-opとなり、result commentもcloseも行わない。marker付きIssueでrequest envelopeが不正な場合は、明示的なbridge requestとして従来どおり`invalid_request` resultを1件記録してcloseする。
+bridge requestとしてadmitするIssueは、タイトルを必ず`[TOOL REQUEST] `で始める。OWNER（数値GitHub ID `79015263`）が作成したmarker付きIssueだけが受入対象。private v1は従来経路、public v2は秘密値を渡さないadmission jobを先に通過する。通常Issueはworkflow/runtimeの両方でno-opとなり、result commentもcloseも行わない。private v1の不正requestは従来どおり`invalid_request`結果を返してclose。**public v2のadmission不合格は、secretをロードせずActionsのadmission jobで拒否される（Issueには最終コメントが投稿されない）**。
 
 Issue本文にはmachine-readableな`json` fenced blockを1個だけ置く。request schemaは`kinotch-tool-request-v1`、result schemaは`kinotch-tool-result-v1`。
 
@@ -53,7 +53,7 @@ v1はgeneric shell / arbitrary shell、任意command、任意executable path、e
 
 **利用前の必須確認**：GitHub public Issueへ投稿した瞬間から誰でも本文を読める。GitHub Actionsでのスキャンは**投稿後**であり機密漏洩を予防しない。作成側のユーザー/agentが**投稿前**に非機密であること・URL/個人情報/認証情報/他人の機密がないことを判断し、迷うならpublic Issueを作らず認証済みPC/MCP等の非公開経路を使用する。簡易正規表現の通過は非機密性の証明ではない。
 
-公開モードはIssue本文を**以下のJSONフェンス1つだけ**で構成する。追加前置き、後書き、別のフェンス、未知field、v1形式は拒否。
+公開モードのIssueタイトルは **`[TOOL REQUEST] public semantic_compress`** に固定し、本文を**以下のJSONフェンス1つだけ**で構成する。追加前置き、後書き、別のフェンス、未知field、v1形式は拒否。
 
 ```json
 {
