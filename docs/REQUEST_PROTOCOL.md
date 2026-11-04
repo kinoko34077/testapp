@@ -1,12 +1,12 @@
 # ChatGPT Tool Bridge Request Protocol v1
 
-この文書は、通常ChatGPT / mobile（スマホ）からprivate repository `kinoko34077/testapp`を介して独自toolを呼び出すv1 protocolを定義する。
+通常ChatGPT / mobile（スマホ）から独自toolを呼ぶ受入契約。**private v1**と、公開してよいテキスト専用の**public v2**を明確に分ける。現在の`testapp` repositoryはpublic。
 
 ## Transport
 
-1 request = 1 private repository Issue とする。入口はGitHub Actionsの`issues: opened`で、通常経路にRDCは不要。
+1 request = 1 GitHub Issue。入口は`issues: opened`、通常経路にRDCは不要。ただし**public Issue本文は投稿時点で公開**（削除・close・後段検査では取り消せない）。非機密であることを投稿前に確認できない場合、public経路を使わない。
 
-bridge requestとしてadmitするIssueは、タイトルを必ず`[TOOL REQUEST] `で始める。private repositoryかつOWNERが作成したこのmarker付きIssueだけがsecret-bearing jobへ進む。通常Issueはworkflow/runtimeの両方でno-opとなり、result commentもcloseも行わない。marker付きIssueでrequest envelopeが不正な場合は、明示的なbridge requestとして従来どおり`invalid_request` resultを1件記録してcloseする。
+bridge requestとしてadmitするIssueは、タイトルを必ず`[TOOL REQUEST] `で始める。OWNER（数値GitHub ID `79015263`）が作成したmarker付きIssueだけが受入対象。private v1は従来経路、public v2は秘密値を渡さないadmission jobを先に通過する。通常Issueはworkflow/runtimeの両方でno-opとなり、result commentもcloseも行わない。marker付きIssueでrequest envelopeが不正な場合は、明示的なbridge requestとして従来どおり`invalid_request` resultを1件記録してcloseする。
 
 Issue本文にはmachine-readableな`json` fenced blockを1個だけ置く。request schemaは`kinotch-tool-request-v1`、result schemaは`kinotch-tool-result-v1`。
 
@@ -46,7 +46,35 @@ Secret値はこの文書、Issue、commit、Actions summaryへ記録しません
 
 v1はgeneric shell / arbitrary shell、任意command、任意executable path、environment assignment、任意model/provider override、local filesystem path、code modification commandをrequest fieldとして受け付けません。
 
-通常ChatGPT / mobileからは、このprotocolに従うprivate Issueを作成し、Actions完了後に同じIssueのresult commentを読み戻します。通常利用経路にRDCやself-hosted runnerは不要です。
+通常ChatGPT / mobileからは、privateならv1、publicなら後述のv2に従ってIssueを作成し、Actions完了後に同じIssueのresult commentを読み戻します。RDCやself-hosted runnerは不要です。
+
+
+## Public Semantic Compression v2（公開非機密テキスト限定）
+
+**利用前の必須確認**：GitHub public Issueへ投稿した瞬間から誰でも本文を読める。GitHub Actionsでのスキャンは**投稿後**であり機密漏洩を予防しない。作成側のユーザー/agentが**投稿前**に非機密であること・URL/個人情報/認証情報/他人の機密がないことを判断し、迷うならpublic Issueを作らず認証済みPC/MCP等の非公開経路を使用する。簡易正規表現の通過は非機密性の証明ではない。
+
+公開モードはIssue本文を**以下のJSONフェンス1つだけ**で構成する。追加前置き、後書き、別のフェンス、未知field、v1形式は拒否。
+
+```json
+{
+  "schema": "kinotch-tool-request-v2",
+  "request_id": "req_public12345678",
+  "tool": "semantic_compress",
+  "parameters": {
+    "text": "一般公開の商品紹介を短くする。固有の個人情報は含まない。",
+    "profile": "semantic-dense-v1"
+  },
+  "data_classification": "public_non_sensitive",
+  "acknowledge_public_disclosure": true
+}
+```
+
+- `data_classification` と `acknowledge_public_disclosure` は**公開を認識した明示申告**であり、機密判定の自動的な合格証ではない。
+- 依頼は`[TOOL REQUEST] `で始まるIssueタイトル、`issues:opened`、正規repo、ownerの**数値user ID** `79015263`が必須。ログイン名や`author_association`だけでは不可。
+- public admission jobは秘密値なしで本文全体とschemaを検証。秘密鍵、代表的token、メール、電話、private Drive URL、専用private履歴repoへのリンクなどを検知した場合はプロバイダ呼出を拒否する。**すべての機密情報は検知できない**。
+- 受入後にだけpublic compression jobが実行される。秘密値は`COMPRESSION_API_TOKEN`のみ。Jev、`TYPESAFE_API_KEY`、generic shell/CLI、private v1はpublic経路で無効。
+- 検証失敗は**admission jobの失敗**として観測する。公開本文は既に表示されているため、公開してはいけない情報はそもそもIssueへ投稿しない。
+- private v1と共通のプロバイダ契約は既存`kinotch-api POST /v1/compress`。API結果は`kinotch-tool-result-v1`でIssueコメントへ返す（**publicの場合は出力も公開**）。
 
 ## Jev Audit: full
 
@@ -111,7 +139,7 @@ raw provider body、Error stack、監査対象source全文、credentialはresult
 
 ## Privacy and credentials
 
-このtransportはprivate repository専用。Semantic Compressionのchat本文や結果をpublic Issue、public repository、Actions summary、artifactへ複製しない。
+private v1はprivate repository専用。public v2は**投稿前に公開同意した非機密の圧縮本文に限る**。GitHub公開Issue内の入力・結果は恒久的な公開情報として扱う。機密なチャット本文、private URL、credentials、PIIをpublicへ転記しない。いずれもActions summary、artifact、workflow logsへ本文/秘密値を複製しない。
 
 Live provider実行には、`kinoko34077/testapp`のGitHub Actions Secretsへ以下のsecret名を手動登録する。
 
