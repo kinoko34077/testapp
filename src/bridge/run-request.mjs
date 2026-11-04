@@ -1,5 +1,7 @@
 import { tmpdir } from 'node:os';
 
+import { admitPublicCompression, TRUSTED_OWNER_ID } from './public-request.mjs';
+
 import { createGitHubClient as defaultCreateGitHubClient } from './github.mjs';
 import { runJevAudit as defaultRunJevAudit } from './jev-audit.mjs';
 import {
@@ -23,16 +25,22 @@ function validateEvent(event, env) {
   }
   const fullName = event.repository?.full_name;
   const owner = event.repository?.owner?.login;
-  if (typeof fullName !== 'string' || fullName !== env.GITHUB_REPOSITORY) {
+  if (typeof fullName !== 'string' || fullName !== env.GITHUB_REPOSITORY
+    || fullName !== 'kinoko34077/testapp'
+    || typeof event.repository?.private !== 'boolean'
+    || owner !== 'kinoko34077'
+    || event.repository?.owner?.id !== TRUSTED_OWNER_ID) {
     throw new TypeError('event repository is invalid');
   }
   if (
-    typeof owner !== 'string' ||
     issue.user?.login !== owner ||
-    issue.author_association !== 'OWNER'
+    issue.user?.id !== TRUSTED_OWNER_ID ||
+    issue.author_association !== 'OWNER' ||
+    (event.sender != null && event.sender?.id !== TRUSTED_OWNER_ID)
   ) {
-    throw new TypeError('issue must be opened by repository owner');
+    throw new TypeError('issue must be opened by numeric repository owner');
   }
+  if (event.repository.private === false) admitPublicCompression(event);
   return issue;
 }
 

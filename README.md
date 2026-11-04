@@ -1,28 +1,24 @@
 # KiNoTch. ChatGPT Tool Bridge
 
-通常ChatGPT / mobile（スマホ）から、KiNoTch.独自ツールをRDCなしで呼び出すためのprivate GitHub bridgeです。
+通常ChatGPT / mobile（スマホ）から、KiNoTch.独自ツールを GitHub Issues → Actions → 正規API 経由で呼ぶ bounded bridge。RDCは不要。
 
-GitHub Pluginそのものではなく、private Issueをrequest mailbox、GitHub Actionsを実行・受渡し層として使う「実質的な外部tool層」です。
+## 現行の公開／非公開の区別
+
+- **公開リポジトリの `semantic_compress`**: 明示的に公開許可された**非機密テキストのみ**。専用 `kinotch-tool-request-v2` を使い、`public_non_sensitive` と公開承諾を必須とする。公開Issueの本文と結果は**投稿直後から誰でも閲覧可能**であり、処理後の拒否・削除でも取り消せない。作成前に利用者/agentが機密性を検査し、不確実なら投稿しない。静的secret scanは完全な機密判定ではない。
+- **非公開リポジトリのv1**: 既存の `semantic_compress` / `jev_audit` を維持。公開リポジトリでv1やJevは動作しない。
+- **PCからの非公開テキスト圧縮**: `kinotch-api` のAccess保護MCP / RESTを用いる。公開Issueには貼らない。
+
+公開経路は認可済みOWNERの数値GitHub user IDのみをadmitし、**secret-free admission job**を通過した場合のみCompression API tokenを使用。公開経路にJev CLIやTYPESAFE_API_KEYは渡さない。
 
 ## v1 tools
 
-- `semantic_compress` — 既存Semantic Compression REST APIを呼び出す。
-- `jev_audit` — 公開repository/refをcheckoutし、既存Jev Audit CLIを呼び出す。
+- `semantic_compress` — 既存 `kinotch-api POST /v1/compress` 呼び出し。
+- `jev_audit` — 公開repository/refのJev Audit（非公開transportでのみ使用）。
 
-Request schemaは`kinotch-tool-request-v1`、result schemaは`kinotch-tool-result-v1`です。詳細は`docs/REQUEST_PROTOCOL.md`を参照してください。
+契約は `docs/REQUEST_PROTOCOL.md`（`kinotch-tool-request-v1` / `kinotch-tool-request-v2`、結果は `kinotch-tool-result-v1`）。任意shell／prompt／model proxyはない。
 
-## Normal path
+## 認証・安全
 
-```text
-Normal ChatGPT / mobile
-  -> private repository Issue
-  -> issues: opened
-  -> GitHub Actions
-  -> bounded adapter
-  -> private Issue result comment
-  -> ChatGPT readback
-```
+private向け経路は `COMPRESSION_API_TOKEN` および `TYPESAFE_API_KEY` のRepository Actions Secretsが必要。公開経路は `COMPRESSION_API_TOKEN` のみ。秘密値はIssue/commit/log/artifactへ出さない。安全確認なく鍵・repo可視性・権限を変更しない。
 
-v1はgeneric shell / arbitrary shell / 任意CLIを提供しません。許可済みtoolとfieldだけをfail-closedで処理します。
-
-Live provider実行にはrepositoryのGitHub Actions Secretsへ`COMPRESSION_API_TOKEN`と`TYPESAFE_API_KEY`を手動登録する必要があります。secret値はrepository contentへ保存しません。
+公開データについては **必ずIssue作成前に判定する**。公開後のGitHub Actions側チェックはAPI呼出の拒否であり、投稿済みデータの非公開化ではない。サンプルとnegative casesは`docs/REQUEST_PROTOCOL.md`を参照。
