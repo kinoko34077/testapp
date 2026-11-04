@@ -208,6 +208,8 @@ test('manual rerun reuses an existing final bot result without tool execution or
   assert.deepEqual(h.closed, [42]);
 });
 
+function publicBody(requestValue) { return '```json\n' + JSON.stringify(requestValue) + '\n```'; }
+
 test('public v2 synthetic text performs exactly one semantic call and no Jev work', async () => {
   const h = harness();
   const req = {
@@ -216,7 +218,7 @@ test('public v2 synthetic text performs exactly one semantic call and no Jev wor
     data_classification: 'public_non_sensitive',
     acknowledge_public_disclosure: true,
   };
-  const event = eventFor(body(req));
+  const event = eventFor(publicBody(req));
   event.repository.private = false;
   const result = await runIssueRequest({ event, env, dependencies: h.dependencies });
   assert.equal(result.status, 'success');
@@ -228,8 +230,8 @@ test('public v2 synthetic text performs exactly one semantic call and no Jev wor
 
 test('public v1, protected content and forged numeric owner never start provider work', async () => {
   for (const mutate of [
-    (e) => { e.issue.body = body(request('semantic_compress', { text: 'public text', profile: 'compact-v1' })); },
-    (e) => { e.issue.body = body({ ...JSON.parse(e.issue.body.match(/```json\n([\s\S]*?)\n```/)[1]), parameters: { text: 'password=not-for-public', profile: 'compact-v1' } }); },
+    (e) => { e.issue.body = publicBody(request('semantic_compress', { text: 'public text', profile: 'compact-v1' })); },
+    (e) => { e.issue.body = publicBody({ ...JSON.parse(e.issue.body.match(/```json\n([\s\S]*?)\n```/)[1]), parameters: { text: 'password=not-for-public', profile: 'compact-v1' } }); },
     (e) => { e.issue.user.id = 12345; },
   ]) {
     const h = harness();
@@ -239,7 +241,7 @@ test('public v1, protected content and forged numeric owner never start provider
       data_classification: 'public_non_sensitive',
       acknowledge_public_disclosure: true,
     };
-    const event = eventFor(body(valid));
+    const event = eventFor(publicBody(valid));
     event.repository.private = false;
     mutate(event);
     await assert.rejects(() => runIssueRequest({ event, env, dependencies: h.dependencies }));
