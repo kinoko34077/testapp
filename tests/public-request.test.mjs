@@ -20,7 +20,7 @@ function eventFor(payload = request()) {
       owner: { login: 'kinoko34077', id: TRUSTED_OWNER_ID },
     },
     issue: {
-      number: 1234, title: '[TOOL REQUEST] public compression',
+      number: 1234, title: '[TOOL REQUEST] public semantic_compress',
       user: { login: 'kinoko34077', id: TRUSTED_OWNER_ID },
       author_association: 'OWNER',
       body: fence(payload),
