@@ -1,6 +1,8 @@
 export const TOOL_REQUEST_TITLE_PREFIX = '[TOOL REQUEST] ';
 const REQUEST_SCHEMA = 'kinotch-tool-request-v1';
+const PUBLIC_REQUEST_SCHEMA = 'kinotch-tool-request-v2';
 const REQUEST_KEYS = ['parameters', 'request_id', 'schema', 'tool'];
+const PUBLIC_REQUEST_KEYS = [...REQUEST_KEYS, 'data_classification', 'acknowledge_public_disclosure'];
 const COMPRESS_PROFILES = new Set(['compact-v1', 'semantic-dense-v1']);
 const JEV_PROFILES = new Set(['development', 'generic']);
 const JEV_MODES = new Set(['full', 'changed-only']);
@@ -90,10 +92,18 @@ function validateJev(parameters) {
 }
 
 export function validateRequestEnvelope(value) {
-  assertExactKeys(value, REQUEST_KEYS, 'request');
-  if (value.schema !== REQUEST_SCHEMA) fail('schema is invalid');
+  const isPublic = value?.schema === PUBLIC_REQUEST_SCHEMA;
+  assertExactKeys(value, isPublic ? PUBLIC_REQUEST_KEYS : REQUEST_KEYS, 'request');
+  if (value.schema !== REQUEST_SCHEMA && !isPublic) fail('schema is invalid');
   if (typeof value.request_id !== 'string' || !REQUEST_ID_RE.test(value.request_id)) {
     fail('request_id is invalid');
+  }
+  if (isPublic) {
+    if (value.data_classification !== 'public_non_sensitive'
+      || value.acknowledge_public_disclosure !== true) {
+      fail('public disclosure acknowledgement is required');
+    }
+    if (value.tool !== 'semantic_compress') fail('public mode only supports semantic_compress');
   }
   let parameters;
   if (value.tool === 'semantic_compress') {
@@ -103,7 +113,14 @@ export function validateRequestEnvelope(value) {
   } else {
     fail('tool is invalid');
   }
-  return {
+  return isPublic ? {
+    schema: PUBLIC_REQUEST_SCHEMA,
+    request_id: value.request_id,
+    tool: value.tool,
+    parameters,
+    data_classification: value.data_classification,
+    acknowledge_public_disclosure: true,
+  } : {
     schema: REQUEST_SCHEMA,
     request_id: value.request_id,
     tool: value.tool,
