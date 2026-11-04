@@ -10,7 +10,7 @@ const request = () => ({
   data_classification: 'public_non_sensitive',
   acknowledge_public_disclosure: true,
 });
-const fence = (value) => ```json\n${JSON.stringify(value)}\n```;
+const fence = (value) => '```json\n' + JSON.stringify(value) + '\n```';
 function eventFor(payload = request()) {
   return {
     action: 'opened',
