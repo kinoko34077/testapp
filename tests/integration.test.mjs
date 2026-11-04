@@ -23,13 +23,15 @@ function eventFor(requestBody, title = '[TOOL REQUEST] bridge request') {
       number: 42,
       title,
       body: requestBody,
-      user: { login: 'kinoko34077' },
+      user: { login: 'kinoko34077', id: 79015263 },
       author_association: 'OWNER',
     },
     repository: {
       full_name: 'kinoko34077/testapp',
-      owner: { login: 'kinoko34077' },
+      private: true,
+      owner: { login: 'kinoko34077', id: 79015263 },
     },
+    sender: { login: 'kinoko34077', id: 79015263 },
   };
 }
 function harness({ duplicate = null, semanticResult, jevResult, toolError } = {}) {
@@ -204,4 +206,43 @@ test('manual rerun reuses an existing final bot result without tool execution or
   assert.equal(h.calls.semantic + h.calls.jev, 0);
   assert.equal(h.comments.length, 0);
   assert.deepEqual(h.closed, [42]);
+});
+
+test('public v2 synthetic text performs exactly one semantic call and no Jev work', async () => {
+  const h = harness();
+  const req = {
+    ...request('semantic_compress', { text: '公開サンプル商品紹介です。', profile: 'semantic-dense-v1' }),
+    schema: 'kinotch-tool-request-v2',
+    data_classification: 'public_non_sensitive',
+    acknowledge_public_disclosure: true,
+  };
+  const event = eventFor(body(req));
+  event.repository.private = false;
+  const result = await runIssueRequest({ event, env, dependencies: h.dependencies });
+  assert.equal(result.status, 'success');
+  assert.equal(h.calls.semantic, 1);
+  assert.equal(h.calls.jev, 0);
+  assert.equal(h.comments.length, 1);
+  assert.deepEqual(h.closed, [42]);
+});
+
+test('public v1, protected content and forged numeric owner never start provider work', async () => {
+  for (const mutate of [
+    (e) => { e.issue.body = body(request('semantic_compress', { text: 'public text', profile: 'compact-v1' })); },
+    (e) => { e.issue.body = body({ ...JSON.parse(e.issue.body.match(/```json\n([\s\S]*?)\n```/)[1]), parameters: { text: 'password=not-for-public', profile: 'compact-v1' } }); },
+    (e) => { e.issue.user.id = 12345; },
+  ]) {
+    const h = harness();
+    const valid = {
+      ...request('semantic_compress', { text: '公開サンプル', profile: 'compact-v1' }),
+      schema: 'kinotch-tool-request-v2',
+      data_classification: 'public_non_sensitive',
+      acknowledge_public_disclosure: true,
+    };
+    const event = eventFor(body(valid));
+    event.repository.private = false;
+    mutate(event);
+    await assert.rejects(() => runIssueRequest({ event, env, dependencies: h.dependencies }));
+    assert.equal(h.calls.semantic + h.calls.jev, 0);
+  }
 });
