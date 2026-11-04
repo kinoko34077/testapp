@@ -220,6 +220,7 @@ test('public v2 synthetic text performs exactly one semantic call and no Jev wor
   };
   const event = eventFor(publicBody(req));
   event.repository.private = false;
+  event.issue.title = '[TOOL REQUEST] public semantic_compress';
   const result = await runIssueRequest({ event, env, dependencies: h.dependencies });
   assert.equal(result.status, 'success');
   assert.equal(h.calls.semantic, 1);
@@ -243,6 +244,7 @@ test('public v1, protected content and forged numeric owner never start provider
     };
     const event = eventFor(publicBody(valid));
     event.repository.private = false;
+    event.issue.title = '[TOOL REQUEST] public semantic_compress';
     mutate(event);
     await assert.rejects(() => runIssueRequest({ event, env, dependencies: h.dependencies }));
     assert.equal(h.calls.semantic + h.calls.jev, 0);
