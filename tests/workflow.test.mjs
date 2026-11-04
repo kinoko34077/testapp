@@ -63,3 +63,23 @@ test('checkout never persists the workflow token into git config', async () => {
     assert.match(text, /persist-credentials:\s*false/);
   }
 });
+
+test('public compression has secret-free admission and no Jev/TypeSafe capability', async () => {
+  const text = await workflow('tool-request.yml');
+  const admission = text.split('\n  public_admission:')[1]?.split('\n  public_compress:')[0];
+  const publicRun = text.split('\n  public_compress:')[1];
+  const privateRun = text.split('\n  private_bridge:')[1]?.split('\n  public_admission:')[0];
+  assert.ok(admission && publicRun && privateRun, 'private and public jobs must remain isolated');
+  assert.match(admission, /github\.event\.repository\.private\s*==\s*false/);
+  assert.match(admission, /github\.event\.issue\.user\.id\s*==\s*79015263/);
+  assert.match(admission, /permissions:\s*\n\s*contents:\s*read/);
+  assert.match(admission, /node scripts\/check-public-request\.mjs/);
+  assert.doesNotMatch(admission, /issues:\s*write|secrets\.|TYPESAFE_API_KEY|COMPRESSION_API_TOKEN/);
+  assert.match(publicRun, /needs:\s*public_admission/);
+  assert.match(publicRun, /needs\.public_admission\.result\s*==\s*'success'/);
+  assert.match(publicRun, /github\.event\.issue\.user\.id\s*==\s*79015263/);
+  assert.match(publicRun, /COMPRESSION_API_TOKEN:\s*\$\{\{\s*secrets\.COMPRESSION_API_TOKEN\s*\}\}/);
+  assert.doesNotMatch(publicRun, /TYPESAFE_API_KEY|Install Jev Audit|setup-python|\.\.\/\./);
+  assert.match(privateRun, /github\.event\.repository\.private\s*==\s*true/);
+  assert.match(privateRun, /TYPESAFE_API_KEY/);
+});
